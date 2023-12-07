@@ -999,4 +999,17 @@ public class ReactionsLayoutInBubble {
             return false;
         }
     }
+
+    public void getDrawingRect(Rect outRect) {
+        outRect.setEmpty();
+        for (int i = 0, count = reactionButtons.size(); i < count; i++) {
+            ReactionButton button = reactionButtons.get(i);
+            outRect.union(button.x, button.y, button.x + button.width, button.y + button.height);
+        }
+        for (int i = 0, count = outButtons.size(); i < count; i++) {
+            ReactionButton button = reactionButtons.get(i);
+            outRect.union(button.x, button.y, button.x + button.width, button.y + button.height);
+        }
+        outRect.offset(x, y);
+    }
 }

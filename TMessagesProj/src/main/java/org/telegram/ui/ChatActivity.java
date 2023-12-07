@@ -236,6 +236,10 @@ import org.telegram.ui.Components.CombinedDrawable;
 import org.telegram.ui.Components.CounterView;
 import org.telegram.ui.Components.CrossfadeDrawable;
 import org.telegram.ui.Components.CubicBezierInterpolator;
+import org.telegram.ui.Components.Dispersion.DispersionEffect;
+import org.telegram.ui.Components.Dispersion.DispersionEffectFactory;
+import org.telegram.ui.Components.Dispersion.DispersionEffectItemDecoration;
+import org.telegram.ui.Components.Dispersion.DispersionEffects;
 import org.telegram.ui.Components.EditTextBoldCursor;
 import org.telegram.ui.Components.EditTextCaption;
 import org.telegram.ui.Components.EmbedBottomSheet;
@@ -4554,9 +4558,17 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 if (size > 0) {
                     for (int a = 0; a < size; a++) {
                         ChatMessageCell cell = drawTimeAfter.get(a);
+                        float canvasOffsetX = cell.getLeft() + cell.getNonAnimationTranslationX(false);
+                        float canvasOffsetY = cell.getY();
+                        float alpha = cell.shouldDrawAlphaLayer() ? cell.getAlpha() : 1f;
+
                         canvas.save();
-                        canvas.translate(cell.getLeft() + cell.getNonAnimationTranslationX(false), cell.getY());
-                        cell.drawTime(canvas, cell.shouldDrawAlphaLayer() ? cell.getAlpha() : 1f, true);
+                        canvas.translate(canvasOffsetX, canvasOffsetY);
+                        DispersionEffect dispersionEffect = DispersionEffects.getInstance().get(cell);
+                        if (dispersionEffect != null) {
+                            canvas.clipRect(dispersionEffect.getClipRect(AndroidUtilities.rectTmp));
+                        }
+                        cell.drawTime(canvas, alpha, true);
                         canvas.restore();
                     }
                     drawTimeAfter.clear();
@@ -4571,6 +4583,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
                         canvas.save();
                         canvas.translate(canvasOffsetX, canvasOffsetY);
+                        DispersionEffect dispersionEffect = DispersionEffects.getInstance().get(cell);
+                        if (dispersionEffect != null) {
+                            canvas.clipRect(dispersionEffect.getClipRect(AndroidUtilities.rectTmp));
+                        }
                         cell.setInvalidatesParent(true);
                         cell.drawNamesLayout(canvas, alpha);
                         cell.setInvalidatesParent(false);
@@ -4609,6 +4625,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         }
                         if (cell.getTransitionParams().wasDraw) {
                             canvas.translate(canvasOffsetX, canvasOffsetY);
+                            DispersionEffect dispersionEffect = DispersionEffects.getInstance().get(cell);
+                            if (dispersionEffect != null) {
+                                canvas.clipRect(dispersionEffect.getClipRect(AndroidUtilities.rectTmp));
+                            }
                             cell.setInvalidatesParent(true);
                             cell.drawCaptionLayout(canvas, selectionOnly, alpha);
                             cell.setInvalidatesParent(false);
@@ -4723,6 +4743,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (scrimView != cell && group == null && cell.drawBackgroundInParent()) {
                             canvas.save();
                             canvas.translate(cell.getX(), cell.getY());
+                            DispersionEffect effect = DispersionEffects.getInstance().get(cell);
+                            if (effect != null) {
+                                canvas.clipRect(effect.getClipRect(AndroidUtilities.rectTmp));
+                            }
                             if (cell.getScaleX() != 1f) {
                                 canvas.scale(
                                     cell.getScaleX(), cell.getScaleY(),
@@ -4737,6 +4761,10 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (cell.hasGradientService()) {
                             canvas.save();
                             canvas.translate(cell.getX(), cell.getY());
+                            DispersionEffect effect = DispersionEffects.getInstance().get(cell);
+                            if (effect != null) {
+                                canvas.clipRect(effect.getClipRect(AndroidUtilities.rectTmp));
+                            }
                             canvas.scale(cell.getScaleX(), cell.getScaleY(), cell.getMeasuredWidth() / 2f, cell.getMeasuredHeight() / 2f);
                             cell.drawBackground(canvas, true);
                             canvas.restore();
@@ -4837,8 +4865,18 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                             t = chatListViewPaddingTop - chatListViewPaddingVisibleOffset - AndroidUtilities.dp(20);
                         }
 
-                        if (b > chatListView.getMeasuredHeight() +  AndroidUtilities.dp(20)) {
+                        if (b > chatListView.getMeasuredHeight() + AndroidUtilities.dp(20)) {
                             b = chatListView.getMeasuredHeight() + AndroidUtilities.dp(20);
+                        }
+
+                        DispersionEffect dispersionEffect = DispersionEffects.getInstance().get(group.transitionParams.cell);
+                        if (dispersionEffect != null) {
+                            RectF clipRect = dispersionEffect.getClipRect(AndroidUtilities.rectTmp);
+                            clipRect.offset(group.transitionParams.cell.getX(), group.transitionParams.cell.getY());
+                            clipRect.top = t;
+                            clipRect.bottom = b;
+                            canvas.save();
+                            canvas.clipRect(clipRect);
                         }
 
                         boolean useScale = group.transitionParams.cell.getScaleX() != 1f || group.transitionParams.cell.getScaleY() != 1f;
@@ -4871,6 +4909,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                 }
                             }
                         }
+                        if (dispersionEffect != null) {
+                            canvas.restore();
+                        }
                     }
                 }
             }
@@ -4887,9 +4928,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 boolean skipDraw = child == scrimView;
                 ChatMessageCell cell;
                 ChatActionCell actionCell = null;
-                float cilpTop = chatListViewPaddingTop - chatListViewPaddingVisibleOffset - AndroidUtilities.dp(4);
+                float clipTop = chatListViewPaddingTop - chatListViewPaddingVisibleOffset - AndroidUtilities.dp(4);
 
-                if (child.getY() > getMeasuredHeight() || child.getY() + child.getMeasuredHeight() < cilpTop) {
+                if (child.getY() > getMeasuredHeight() || child.getY() + child.getMeasuredHeight() < clipTop) {
                     skipDraw = true;
                 }
 
@@ -4927,6 +4968,18 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 } else {
                     cell = null;
                 }
+
+                final int saveCount;
+                DispersionEffect dispersionEffect = DispersionEffects.getInstance().get(child);
+                if (dispersionEffect != null && !skipDraw) {
+                    saveCount = canvas.save();
+                    RectF rect = dispersionEffect.getClipRect(AndroidUtilities.rectTmp);
+                    rect.offset(child.getX(), child.getY());
+                    canvas.clipRect(rect);
+                } else {
+                    saveCount = Integer.MIN_VALUE;
+                }
+
                 if (clipLeft != 0) {
                     canvas.save();
                 } else if (clipBottom != 0) {
@@ -5009,10 +5062,8 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                     drawNamesAfter.add(cell);
                                 }
                             }
-                            if (position != null || cell.getTransitionParams().transformGroupToSingleMessage || cell.getTransitionParams().animateBackgroundBoundsInner) {
-                                if (position == null || (position.flags & MessageObject.POSITION_FLAG_BOTTOM) != 0) {
-                                    drawCaptionAfter.add(cell);
-                                }
+                            if (position == null || (position.flags & MessageObject.POSITION_FLAG_BOTTOM) != 0) {
+                                drawCaptionAfter.add(cell);
                             }
                         }
 
@@ -5034,6 +5085,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                         if (cell.getMessageObject().deleted) {
                             if (child.getTranslationY() != 0) {
                                 canvas.restore();
+                            }
+                            if (saveCount != Integer.MIN_VALUE) {
+                                canvas.restoreToCount(saveCount);
                             }
                             imageReceiver.setVisible(false, false);
                             return result;
@@ -5079,6 +5133,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                          if (child.getTranslationY() != 0) {
                                              canvas.restore();
                                          }
+                                         if (saveCount != Integer.MIN_VALUE) {
+                                             canvas.restoreToCount(saveCount);
+                                         }
                                          imageReceiver.setVisible(false, false);
                                          return result;
                                      }
@@ -5087,6 +5144,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                                     if (holder != null) {
                                         if (child.getTranslationY() != 0) {
                                             canvas.restore();
+                                        }
+                                        if (saveCount != Integer.MIN_VALUE) {
+                                            canvas.restoreToCount(saveCount);
                                         }
                                         imageReceiver.setVisible(false, false);
                                         return result;
@@ -5244,6 +5304,9 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
 
                 if (child.getTranslationY() != 0) {
                     canvas.restore();
+                }
+                if (saveCount != Integer.MIN_VALUE) {
+                    canvas.restoreToCount(saveCount);
                 }
                 return result;
             }
@@ -5610,6 +5673,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                 }
             }
         });
+        chatListView.addItemDecoration(new DispersionEffectItemDecoration());
         chatListView.setOnItemLongClickListener(onItemLongClickListener);
         chatListView.setOnItemClickListener(onItemClickListener);
         chatListView.setOnScrollListener(new RecyclerView.OnScrollListener() {
@@ -13693,7 +13757,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
                     }
                     child.draw(blurCanvas);
                     if (cell.hasOutboundsContent()) {
-                        ((ChatMessageCell) child).drawOutboundsContent(blurCanvas);
+                        cell.drawOutboundsContent(blurCanvas);
                     }
                     cell.drawForBlur = false;
                 } else if (child instanceof ChatActionCell) {
@@ -33983,7 +34047,7 @@ public class ChatActivity extends BaseFragment implements NotificationCenter.Not
             clip[1] = chatListView.getMeasuredHeight() - (chatListView.getPaddingBottom() - AndroidUtilities.dp(3));
         }
     }
-    
+
     private void updateVisibleWallpaperActions() {
         if (chatListView != null && chatAdapter != null) {
             for (int i = 0; i < chatListView.getChildCount(); ++i) {
