@@ -487,9 +487,9 @@ public class ProfileStoriesView extends View implements NotificationCenter.Notif
     protected void dispatchDraw(Canvas canvas) {
         float rright = rightAnimated.set(this.right);
         float avatarPullProgress = Utilities.clamp((avatarContainer.getScaleX() - 1f) / 0.4f, 1f, 0f);
-        float insetMain = AndroidUtilities.lerp(AndroidUtilities.dpf2(4f), AndroidUtilities.dpf2(3.5f), avatarPullProgress);
+        float insetMain = AndroidUtilities.lerp(AndroidUtilities.dpf2(5f), AndroidUtilities.dpf2(5f), avatarPullProgress);
         insetMain *= progressToInsets;
-        float ax = avatarContainer.getX() + insetMain * avatarContainer.getScaleX();
+        float ax = avatarContainer.getX() + avatarContainer.getWidth() / 2f * (1f - avatarContainer.getScaleX()) + insetMain * avatarContainer.getScaleX();
         float ay = avatarContainer.getY() + insetMain * avatarContainer.getScaleY();
         float aw = (avatarContainer.getWidth() - insetMain * 2) * avatarContainer.getScaleX();
         float ah = (avatarContainer.getHeight() - insetMain * 2) * avatarContainer.getScaleY();
@@ -592,7 +592,7 @@ public class ProfileStoriesView extends View implements NotificationCenter.Notif
                 rect2.inset(-dpf2(2.66f + 2.23f / 2), -dpf2(2.66f + 2.23f / 2));
                 final Paint paint = StoriesUtilities.getErrorPaint(rect2);
                 paint.setStrokeWidth(AndroidUtilities.dp(2));
-                paint.setAlpha((int) (255 * segmentsAlpha));
+                paint.setAlpha((int) (255 * segmentsAlpha * alphaByAvatar));
                 boolean isForum = ChatObject.isForum(UserConfig.selectedAccount, dialogId);
                 if (isForum) {
                     float r = rect2.height() * 0.32f;
@@ -642,13 +642,13 @@ public class ProfileStoriesView extends View implements NotificationCenter.Notif
 
                     if (read < 1) {
                         unreadPaint = gradientTools.getPaint(rect2);
-                        unreadPaint.setAlpha((int) (0xFF * (1f - read) * segmentsAlpha));
+                        unreadPaint.setAlpha((int) (0xFF * (1f - read) * segmentsAlpha * alphaByAvatar));
                         unreadPaint.setStrokeWidth(dpf2(2.33f));
                         drawArc(canvas, rect2, a, -widthAngle * appear, false, unreadPaint);
                     }
 
                     if (read > 0) {
-                        readPaint.setAlpha((int) (readPaintAlpha * read * segmentsAlpha));
+                        readPaint.setAlpha((int) (readPaintAlpha * read * segmentsAlpha * alphaByAvatar));
                         readPaint.setStrokeWidth(dpf2(1.5f));
                         drawArc(canvas, rect3, a, -widthAngle * appear, false, readPaint);
                     }
@@ -964,6 +964,7 @@ public class ProfileStoriesView extends View implements NotificationCenter.Notif
 
     private float left, right, cy;
     private float expandRight, expandY;
+    private float alphaByAvatar;
     private boolean expandRightPad;
     private final AnimatedFloat expandRightPadAnimated = new AnimatedFloat(this, 0, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
     private final AnimatedFloat rightAnimated = new AnimatedFloat(this, 0, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
@@ -981,10 +982,11 @@ public class ProfileStoriesView extends View implements NotificationCenter.Notif
         }
     }
 
-    public void setExpandCoords(float right, boolean rightPadded, float y) {
+    public void setExpandCoords(float right, boolean rightPadded, float y, float alphaByAvatar) {
         this.expandRight = right;
         this.expandRightPad = rightPadded;
         this.expandY = y;
+        this.alphaByAvatar = alphaByAvatar;
         invalidate();
     }
 

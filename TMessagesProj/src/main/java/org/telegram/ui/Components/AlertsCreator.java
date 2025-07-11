@@ -7547,6 +7547,15 @@ public class AlertsCreator {
         topView.setClipToPadding(false);
         linearLayout.addView(topView, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, 92, Gravity.CENTER, 0, 0, 0, 0));
 
+        ImageView closeView = new ImageView(context);
+        closeView.setPadding(dp(2), dp(2), dp(2), dp(2));
+        closeView.setScaleType(ImageView.ScaleType.CENTER);
+        ScaleStateListAnimator.apply(closeView);
+        closeView.setImageResource(R.drawable.ic_close_white);
+        closeView.setColorFilter(new PorterDuffColorFilter(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText3, resourcesProvider), PorterDuff.Mode.SRC_IN));
+        closeView.setBackground(Theme.createSelectorDrawable(Theme.getColor(Theme.key_listSelector, resourcesProvider), Theme.RIPPLE_MASK_CIRCLE_AUTO));
+        topView.addView(closeView, LayoutHelper.createFrame(24, 24, (LocaleController.isRTL ? Gravity.LEFT : Gravity.RIGHT) | Gravity.TOP, 0, 8, 0, 0));
+
         final FrameLayout circle = new FrameLayout(context);
         ImageView imageView = new ImageView(context);
         imageView.setScaleType(ImageView.ScaleType.CENTER);
@@ -7578,6 +7587,8 @@ public class AlertsCreator {
 
         b.setCustomView(linearLayout);
         BottomSheet sheet = b.create();
+
+        closeView.setOnClickListener(v -> sheet.dismiss());
 
         button.setOnClickListener(v -> {
             final TL_phone.createConferenceCall req = new TL_phone.createConferenceCall();

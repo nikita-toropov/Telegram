@@ -1520,6 +1520,7 @@
     <string name="NoReplies">No replies here yet...</string>
     <string name="ViewInChat">View in chat</string>
     <string name="SendAnonymously">Send anonymously</string>
+    <string name="Discuss">Discuss</string>
     <string name="DiscussionStarted">Discussion started</string>
     <string name="ViewThread">View Thread</string>
     <string name="ChooseDate">Choose date</string>
@@ -3604,6 +3605,7 @@
     <string name="SuggestedPostPublish">Publish</string>
     <string name="SuggestedPostAcceptTitle">Accept Terms</string>
     <string name="Call">Call</string>
+    <string name="Video">Video</string>
     <string name="VideoCall">Video Call</string>
     <string name="Copy">Copy</string>
     <string name="Restrict">Restrict</string>

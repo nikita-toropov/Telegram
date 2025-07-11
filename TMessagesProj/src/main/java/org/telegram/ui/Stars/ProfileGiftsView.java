@@ -1,7 +1,9 @@
 package org.telegram.ui.Stars;
 
 import static org.telegram.messenger.AndroidUtilities.dp;
+import static org.telegram.messenger.AndroidUtilities.dpf2;
 import static org.telegram.messenger.AndroidUtilities.lerp;
+import static org.telegram.messenger.Utilities.clamp01;
 import static org.telegram.ui.Stars.StarsController.findAttribute;
 
 import android.content.Context;
@@ -15,16 +17,13 @@ import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
-import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.Utilities;
 import org.telegram.messenger.browser.Browser;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.tgnet.tl.TL_stars;
-import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
 import org.telegram.ui.Components.AnimatedFloat;
@@ -40,7 +39,6 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
     private final int currentAccount;
     private final long dialogId;
     private final View avatarContainer;
-    private final ProfileActivity.AvatarImageView avatarImage;
     private final Theme.ResourcesProvider resourcesProvider;
 
     public ProfileGiftsView(Context context, int currentAccount, long dialogId, @NonNull View avatarContainer, ProfileActivity.AvatarImageView avatarImage, Theme.ResourcesProvider resourcesProvider) {
@@ -50,7 +48,6 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
         this.dialogId = dialogId;
 
         this.avatarContainer = avatarContainer;
-        this.avatarImage = avatarImage;
 
         this.resourcesProvider = resourcesProvider;
 
@@ -66,41 +63,23 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
     private float actionBarProgress;
     public void setActionBarActionMode(float progress) {
-//        if (Theme.isCurrentThemeDark()) {
-//            return;
-//        }
         actionBarProgress = progress;
         invalidate();
     }
 
+    private float dy;
+    private float collapseProgress;
 
-    private float left, right, cy;
-    private float expandRight, expandY;
-    private boolean expandRightPad;
-    private final AnimatedFloat expandRightPadAnimated = new AnimatedFloat(this, 0, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
-    private final AnimatedFloat rightAnimated = new AnimatedFloat(this, 0, 350, CubicBezierInterpolator.EASE_OUT_QUINT);
-
-    public void setBounds(float left, float right, float cy, boolean animated) {
-        boolean changed = Math.abs(left - this.left) > 0.1f || Math.abs(right - this.right) > 0.1f || Math.abs(cy - this.cy) > 0.1f;
-        this.left = left;
-        this.right = right;
-        if (!animated) {
-            this.rightAnimated.set(this.right, true);
-        }
-        this.cy = cy;
-        if (changed) {
+    public void setCollapseProgress(float collapseProgress, float dy) {
+        if (this.collapseProgress != collapseProgress || this.dy != dy) {
+            this.collapseProgress = collapseProgress;
+            this.dy = dy;
             invalidate();
         }
     }
 
-    public void setExpandCoords(float right, boolean rightPadded, float y) {
-        this.expandRight = right;
-        this.expandRightPad = rightPadded;
-        this.expandY = y;
-        invalidate();
-    }
-
     private float progressToInsets = 1f;
+
     public void setProgressToStoriesInsets(float progressToInsets) {
         if (this.progressToInsets == progressToInsets) {
             return;
@@ -282,7 +261,7 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
             if (oldGift != null) {
                 g.copy(oldGift);
             } else {
-                g.gradient = new RadialGradient(0, 0, dp(22.5f), new int[] { g.color, Theme.multAlpha(g.color, 0.0f) }, new float[] { 0, 1 }, Shader.TileMode.CLAMP);
+                g.gradient = new RadialGradient(0, 0, dp(22.5f), new int[]{g.color, Theme.multAlpha(g.color, 0.0f)}, new float[]{0, 1}, Shader.TileMode.CLAMP);
                 g.gradientPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
                 g.gradientPaint.setShader(g.gradient);
                 if (g.document != null) {
@@ -326,97 +305,92 @@ public class ProfileGiftsView extends View implements NotificationCenter.Notific
 
         final float ax = avatarContainer.getX();
         final float ay = avatarContainer.getY();
-        final float aw = (avatarContainer.getWidth()) * avatarContainer.getScaleX();
-        final float ah = (avatarContainer.getHeight()) * avatarContainer.getScaleY();
+        final float ah = avatarContainer.getHeight() * avatarContainer.getScaleY();
 
         canvas.save();
-        canvas.clipRect(0, 0, getWidth(), expandY);
 
-        final float acx = ax + aw / 2.0f;
-        final float cacx = Math.min(acx, dp(48));
+        final float acx = ax + avatarContainer.getWidth() / 2.0f;
         final float acy = ay + ah / 2.0f;
-        final float ar = Math.min(aw, ah) / 2.0f + dp(6);
-        final float cx = getWidth() / 2.0f;
 
-        final float closedAlpha = Utilities.clamp01((float) (expandY - (AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight())) / dp(50));
+        final float alpha = (1.0f - expandProgress) * (1.0f - actionBarProgress);
 
-        for (int i = 0; i < gifts.size(); ++i) {
-            final Gift gift = gifts.get(i);
-            final float alpha = gift.animatedFloat.set(1.0f);
-            final float scale = lerp(0.5f, 1.0f, alpha);
-            final int index = i; // gifts.size() == maxCount ? i - 1 : i;
+        for (int index = 0; index < gifts.size(); ++index) {
+            final Gift gift = gifts.get(index);
+            float giftAlpha = gift.animatedFloat.set(1.0f);
+            giftAlpha *= alpha;
             if (index == 0) {
+                float f = clamp01(clamp01(collapseProgress - 0.05f) / 0.95f * 4f);
+                float scale = lerp(0.5f, 1.0f, giftAlpha * (1 - f));
                 gift.draw(
-                    canvas,
-                    (float) (acx + ar * Math.cos(-65 / 180.0f * Math.PI)),
-                    (float) (acy + ar * Math.sin(-65 / 180.0f * Math.PI)),
-                    scale, -65 + 90,
-                    alpha * (1.0f - expandProgress), lerp(0.9f, 0.25f, actionBarProgress)
+                        canvas,
+                        lerp(acx - dpf2(64), acx, f),
+                        lerp(acy - dpf2(48) + dy, acy, f),
+                        scale,
+                        0f,
+                        giftAlpha,
+                        1.0f
                 );
             } else if (index == 1) {
+                float f = Utilities.clamp01(collapseProgress * 4.5f);
+                float scale = lerp(0.5f, 1.0f, giftAlpha * (1 - f));
                 gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .27f, dp(62)), cx, 0.5f * actionBarProgress), acy - dp(52),
-                    scale, -4.0f,
-                    alpha * alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
+                        canvas,
+                        lerp(acx + dpf2(77), acx, f),
+                        lerp(acy + dpf2(29) + dy, acy, f),
+                        scale,
+                        -4.0f,
+                        giftAlpha,
+                        1.0f
                 );
             } else if (index == 2) {
+                float f = clamp01(clamp01(collapseProgress - 0.1f) / 0.9f * 4f);
+                float scale = lerp(0.5f, 1.0f, giftAlpha * (1 - f));
                 gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .46f, dp(105)), cx, 0.5f * actionBarProgress), acy - dp(72),
-                    scale, 8.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
+                        canvas,
+                        lerp(acx - dpf2(75), acx, f),
+                        lerp(acy + dpf2(26) + dy, acy, f),
+                        scale,
+                        8.0f,
+                        giftAlpha,
+                        1.0f
                 );
             } else if (index == 3) {
+                float f = clamp01(clamp01(collapseProgress - 0.12f) / 0.88f * 3f);
+                float scale = lerp(0.5f, 1.0f, giftAlpha * (1 - f));
                 gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .60f, dp(136)), cx, 0.5f * actionBarProgress), acy - dp(46),
-                    scale, 3.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
+                        canvas,
+                        lerp(acx + dpf2(86), acx, f),
+                        lerp(acy - dpf2(46) + dy, acy, f),
+                        scale,
+                        3.0f,
+                        giftAlpha,
+                        1.0f
                 );
             } else if (index == 4) {
+                final float f = clamp01(clamp01(collapseProgress - 0.14f) / 0.86f * 1.75f);
+                float scale = lerp(0.5f, 1.0f, giftAlpha * (1 - f));
                 gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .08f, dp(21.6f)), cx, 0.5f * actionBarProgress), acy - dp(82f),
-                    scale, -3.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
+                        canvas,
+                        lerp(acx - dpf2(103), acx, f),
+                        lerp(acy - dpf2(15) + dy, acy, f),
+                        scale, -3.0f,
+                        giftAlpha,
+                        1.0f
                 );
             } else if (index == 5) {
+                final float f = clamp01(clamp01(collapseProgress - 0.15f) / 0.85f * 1.7f);
+                float scale = lerp(0.5f, 1.0f, giftAlpha * (1 - f));
                 gift.draw(
-                    canvas,
-                    lerp(cacx + Math.min(getWidth() * .745f, dp(186)), cx, 0.5f * actionBarProgress), acy - dp(39),
-                    scale, 2.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
+                        canvas,
+                        lerp(acx + dpf2(116), acx, f),
+                        lerp(acy - dpf2(12) + dy, acy, f),
+                        scale,
+                        2.0f,
+                        giftAlpha,
+                        1.0f
                 );
-            } else if (index == 6) {
-                gift.draw(
-                    canvas,
-                    cacx + Math.min(getWidth() * .38f, dp(102)), expandY - dp(12),
-                    scale, 0,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 7) {
-                gift.draw(
-                    canvas,
-                    cacx + Math.min(getWidth() * .135f, dp(36)), expandY - dp(17.6f),
-                    scale, -5.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
-            } else if (index == 8) {
-                gift.draw(
-                    canvas,
-                    cacx + Math.min(getWidth() * .76f, dp(178)), expandY - dp(21.66f),
-                    scale, 5.0f,
-                    alpha * (1.0f - expandProgress) * (1.0f - actionBarProgress) * (closedAlpha),
-                    1.0f
-                );
+            } else {
+                break;
             }
         }
 

@@ -873,12 +873,27 @@ public class LinkSpanDrawable<S extends CharacterStyle> {
         private final LinkCollector links = new LinkCollector(this);
         private final Paint linkBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
+        private float cornerRadiusDp = CORNER_RADIUS_DP;
+
+        public void setCornerRadiusDp(float cornerRadiusDp) {
+            this.cornerRadiusDp = cornerRadiusDp;
+        }
+
+        private float backgroundAlpha = 1f;
+
+        public void setBackgroundAlpha(float alpha) {
+            if (this.backgroundAlpha != alpha) {
+                this.backgroundAlpha = alpha;
+                invalidate();
+            }
+        }
+
         @Override
         protected void onDraw(Canvas canvas) {
-            if (isClickable()) {
+            if (isClickable() && backgroundAlpha > 0f) {
                 AndroidUtilities.rectTmp.set(0, 0, getPaddingLeft() + getTextWidth() + getPaddingRight(), getHeight());
-                linkBackgroundPaint.setColor(getLinkColor());
-                canvas.drawRoundRect(AndroidUtilities.rectTmp, dp(CORNER_RADIUS_DP), dp(CORNER_RADIUS_DP), linkBackgroundPaint);
+                linkBackgroundPaint.setColor(Theme.multAlpha(getLinkColor(), backgroundAlpha));
+                canvas.drawRoundRect(AndroidUtilities.rectTmp, dp(cornerRadiusDp), dp(cornerRadiusDp), linkBackgroundPaint);
             }
 
             super.onDraw(canvas);

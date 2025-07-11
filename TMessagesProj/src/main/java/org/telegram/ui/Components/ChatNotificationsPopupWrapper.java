@@ -268,6 +268,10 @@ public class ChatNotificationsPopupWrapper {
     }
 
     public void showAsOptions(BaseFragment parentFragment, View anchorView, float touchedX, float touchedY) {
+        showAsOptions(parentFragment, anchorView, touchedX, touchedY, true);
+    }
+
+    public void showAsOptions(BaseFragment parentFragment, View anchorView, float touchedX, float touchedY, boolean center) {
         if (parentFragment == null || parentFragment.getFragmentView() == null) {
             return;
         }
@@ -292,8 +296,10 @@ public class ChatNotificationsPopupWrapper {
             y += view.getY();
             view = (View) view.getParent();
         }
-        x -= windowLayout.getMeasuredWidth() / 2f;
-        y -= windowLayout.getMeasuredHeight() / 2f;
+        if (center) {
+            x -= windowLayout.getMeasuredWidth() / 2f;
+            y -= windowLayout.getMeasuredHeight() / 2f;
+        }
         popupWindow.showAtLocation(parentFragment.getFragmentView(), 0, (int) x, (int) y);
         popupWindow.dimBehind();
         //  parentFragment.dimBehindView(true);
